@@ -9,7 +9,13 @@ YELLOW = (255, 255, 0)
 SKY_BLUE = (95, 165, 228)
 WIDTH = 800
 HEIGHT = 600
-TITLE = "<You're title here>"
+TITLE = "<Pygame Project 2022>"
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+
+
 
 
 def main():
