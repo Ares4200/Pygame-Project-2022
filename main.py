@@ -2,9 +2,8 @@
 
 
 import pygame
-import time
 import random
-
+from pygame import mixer
 
 
 # ----- CONSTANTS
@@ -15,30 +14,33 @@ SKY_BLUE = (95, 165, 228)
 WIDTH = 1920
 HEIGHT = 1080
 SPEED = 4
-font_name = pygame.font.match_font('impact')
+font_name = pygame.font.match_font('menlo')
 TITLE = "<Pygame Project 2022>"
 pygame.mixer.init()
 
 # Game sounds
 peanut_sound = pygame.mixer.Sound("./Sounds/Anya say peanut.ogg")
+damage_sound = pygame.mixer.Sound("./Sounds/Anya-Shocked-Sound.ogg")
+heart_sound = pygame.mixer.Sound("./Sounds/Waku waku notification sound.ogg")
+
+# Background Music
+mixer.init()
+mixer.music.load("./Sounds/SPY x FAMILY Main Theme - EPIC VERSION (1).ogg")
+mixer.music.play()
 
 
 def draw_text(surf, text, size, x, y):
     font = pygame.font.Font(font_name, size)
-    text_surface = font.render(text, True, BLACK)
+    text_surface = font.render(text, True, WHITE)
     text_rect = text_surface.get_rect()
     text_rect.midtop = (x, y)
     surf.blit(text_surface, text_rect)
 
 
-class Background(pygame.sprite.Sprite):
-    def __init__(self):
-        super().__init__()
+# Background
 
-        self.image = pygame.image.load("./Assets/City Background.jpg")
-        self.image = pygame.transform.scale(self.image, (WIDTH, HEIGHT))
-        self.rect = self.image.get_rect()
-
+background_image = pygame.image.load("./Assets/City Background.jpg")
+background_image = pygame.transform.scale(background_image, (1920, 1080))
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -74,7 +76,7 @@ class Peanut(pygame.sprite.Sprite):
         self.rect.y = 0
 
         # Speed
-        self.vel_y = 5
+        self.vel_y = 8
 
     def update(self):
         self.rect.y += self.vel_y
@@ -85,7 +87,7 @@ class Enemy(pygame.sprite.Sprite):
 
         # Image
         self.image = pygame.image.load("./Assets/Villain.png")
-        self.image = pygame.transform.scale(self.image, (150, 200))  # scale
+        self.image = pygame.transform.scale(self.image, (150 , 180))  # scale
 
         # Rectangle
         self.rect = self.image.get_rect()
@@ -94,6 +96,25 @@ class Enemy(pygame.sprite.Sprite):
 
         # Speed
         self.vel_y = 10
+
+    def update(self):
+        self.rect.y += self.vel_y
+
+class Heart(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+
+        # Image
+        self.image = pygame.image.load("./Assets/Heart Powerup.png")
+        self.image = pygame.transform.scale(self.image, (80, 100))  # scale
+
+        # Rectangle
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randrange(25, WIDTH - self.rect.width - 25)
+        self.rect.y = 0
+
+        # Speed
+        self.vel_y = 9
 
     def update(self):
         self.rect.y += self.vel_y
@@ -110,47 +131,89 @@ def main():
     # ----- LOCAL VARIABLES
     done = False
     clock = pygame.time.Clock()
-    peanut_spawn = random.randrange(4000, 6000)
+    peanut_spawn = random.randrange(3000, 6000)
+    heart_spawn = random.randrange(8000, 10000)
     enemy_spawn = 1000
     peanut_latest_spawn = pygame.time.get_ticks()
     enemy_latest_spawn = pygame.time.get_ticks()
+    heart_latest_spawn = pygame.time.get_ticks()
     score = 0
-    life = 5
+    life = 0
+    game_over = True
+
+    # Intro / Game Over Screen
+    def show_go_screen():
+        screen.blit(background_image, (0, 0))
+        draw_text(screen, "Anya's Peanut Addiction", 64, WIDTH / 2, HEIGHT / 4 + 120)
+        draw_text(screen, "Controls: Use A and D to move!", 26, WIDTH / 2, HEIGHT / 2 + 50)
+        draw_text(screen, "Press Space to Begin", 22, WIDTH / 2, HEIGHT * (3 / 4) + 120)
+        pygame.display.flip()
+        waiting = True
+        while waiting:
+            clock.tick(60)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                if event.type == pygame.KEYUP:
+                    if event.key == pygame.K_SPACE:
+                        waiting = False
+                        pygame.mixer.music.stop()
+                        pygame.mixer.music.load("./Sounds/SPY x FAMILY Main Theme - EPIC VERSION (1).ogg")
+                        pygame.mixer.music.play(-1)
 
     # ------ SPRITE GROUPS
     all_sprites_group = pygame.sprite.RenderUpdates()
-    background_group = pygame.sprite.Group()
     peanut_group = pygame.sprite.Group()
     enemy_group = pygame.sprite.Group()
+    heart_group = pygame.sprite.Group()
 
 
     # Player
     player = Player()
     all_sprites_group.add(player)
 
-    # Background
-    background = Background()
-    background_group.add(background)
-
     # ----- MAIN LOOP
     while not done:
+
+        if game_over:
+            pygame.mixer.music.stop()
+            pygame.mixer.music.load("./Sounds/SPY x FAMILY Main Theme - EPIC VERSION (1).ogg")
+            pygame.mixer.music.play(-1)
+            # show game over screen
+            show_go_screen()
+            # reset game
+            enemy_spawn = 1000
+            life = 1000
+            score = 0
+            player.vel_x = 0
+            player.rect.x = WIDTH / 2 - 97.5
+            player.rect.y = HEIGHT - player.rect.height - 10
+            for enemy in enemy_group:
+                enemy.kill()
+            for peanut in peanut_group:
+                peanut.kill()
+            for heart in heart_group:
+                heart.kill()
+            game_over = False
+
         # -- Event Handler
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                done = False
+                done = True
 
             # ---- CONTROLS
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_d:
-                    player.vel_x = SPEED
-                elif event.key == pygame.K_a:
-                    player.vel_x = -SPEED
+            if not game_over:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_d:
+                        player.vel_x = SPEED
+                    elif event.key == pygame.K_a:
+                        player.vel_x = -SPEED
 
-            elif event.type == pygame.KEYUP:
-                if event.key == pygame.K_a and player.vel_x < 0:
-                    player.vel_x = 0
-                if event.key == pygame.K_d and player.vel_x > 0:
-                    player.vel_x = 0
+                elif event.type == pygame.KEYUP:
+                    if event.key == pygame.K_a and player.vel_x < 0:
+                        player.vel_x = 0
+                    if event.key == pygame.K_d and player.vel_x > 0:
+                        player.vel_x = 0
 
         # Makes sure player is not out of screen (x-axis)
         if player.rect.right > WIDTH:
@@ -161,55 +224,90 @@ def main():
         # ----- LOGIC
         all_sprites_group.update()
 
-        # Peanut Spawn
-        if pygame.time.get_ticks() > peanut_latest_spawn + peanut_spawn:
-            # set the new time to this current time
-            peanut_latest_spawn = pygame.time.get_ticks()
-            # Spawn Peanut
-            peanut = Peanut()
-            all_sprites_group.add(peanut)
-            peanut_group.add(peanut)
+        if not game_over:
 
-        # Enemy Spawn
-        if pygame.time.get_ticks() > enemy_latest_spawn + enemy_spawn:
-            enemy_latest_spawn = pygame.time.get_ticks()
-            # Spawn enemy
-            enemy = Enemy()
-            all_sprites_group.add(enemy)
-            enemy_group.add(enemy)
+            # Peanut Spawn
+            if pygame.time.get_ticks() > peanut_latest_spawn + peanut_spawn:
+                # set the new time to this current time
+                peanut_latest_spawn = pygame.time.get_ticks()
+                # Spawn Peanut
+                peanut = Peanut()
+                all_sprites_group.add(peanut)
+                peanut_group.add(peanut)
 
-        # If a peanut hits the ground
-        for peanut in peanut_group:
-            if peanut.rect.y >= HEIGHT - peanut.rect.height - 7:
-                peanut.kill()
+            # Enemy Spawn
+            if pygame.time.get_ticks() > enemy_latest_spawn + enemy_spawn:
+                enemy_latest_spawn = pygame.time.get_ticks()
+                # Spawn enemy
+                enemy = Enemy()
+                all_sprites_group.add(enemy)
+                enemy_group.add(enemy)
 
-            # Player collision
-            peanuts_collected = pygame.sprite.spritecollide(player, peanut_group, True)
-            if len(peanuts_collected) > 0:
-                peanut.kill()
-                peanut_sound.play()
-                score += 1
+            # Heart Spawn
+            if pygame.time.get_ticks() > heart_latest_spawn + heart_spawn:
+                heart_latest_spawn = pygame.time.get_ticks()
+                # Spawn heart
+                heart = Heart()
+                all_sprites_group.add(heart)
+                heart_group.add(heart)
 
-        # If an enemy hits the player
-        enemy_collide = pygame.sprite.spritecollide(player, enemy_group, True)
-        for enemy in enemy_group:
-            if len(enemy_collide) > 0:
-                enemy.kill()
-                # damage_sound.play()
-                life -= 1
+            # If a peanut hits the ground
+            for peanut in peanut_group:
+                if peanut.rect.y >= HEIGHT - peanut.rect.height - 7:
+                    peanut.kill()
 
-        # Gamer Over
-        if life < 0:
-            done = True
+                # Player collision
+                peanuts_collected = pygame.sprite.spritecollide(player, peanut_group, True)
+                if len(peanuts_collected) > 0:
+                    peanut.kill()
+                    peanut_sound.play()
+                    score += 1
+
+            # If an enemy hits the player
+            enemy_collide = pygame.sprite.spritecollide(player, enemy_group, dokill= False)
+            for enemy in enemy_group:
+                if len(enemy_collide) > 0:
+                    # enemy.kill()
+                    damage_sound.play()
+                    life -= 1
+
+            # If a heart hits the player
+
+            for heart in heart_group:
+                if heart.rect.y >= HEIGHT - heart.rect.height - 7:
+                    heart.kill()
+
+                heart_collected = pygame.sprite.spritecollide(player, heart_group, True)
+                if len(heart_collected) > 0:
+                    heart.kill()
+                    heart_sound.play()
+                    life += 200
+
+
+
+            # Speed Game Up at Certain Scores
+            if score >= 2:
+                enemy_latest_spawn -= 10
+
+            if score >= 5:
+                enemy_latest_spawn -= 20
+
+            if score >= 10:
+                enemy_latest_spawn -= 40
+
+
+            # Game Over
+            if life < 1:
+                game_over = True
 
         # ----- RENDER
-        background_group.draw(screen)
+        screen.blit(background_image, (0, 0))
         draw = all_sprites_group.draw(screen)
 
         # ----- UPDATE DISPLAY
         pygame.display.update(draw)
-        draw_text(screen, ("Score: " + str(score)), 36, 95, 10)
-        draw_text(screen, ("Life: " + str(life)), 36, 1190, 10)
+        draw_text(screen, ("Score: " + str(score)), 36, 100, 10)
+        draw_text(screen, ("Life: " + str(life//100)), 36, 1500, 10)
         pygame.display.flip()
         clock.tick(60)
 
