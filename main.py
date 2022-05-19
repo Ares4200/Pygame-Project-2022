@@ -21,7 +21,8 @@ pygame.mixer.init()
 # Game sounds
 peanut_sound = pygame.mixer.Sound("./Sounds/Anya say peanut.ogg")
 damage_sound = pygame.mixer.Sound("./Sounds/Anya-Shocked-Sound.ogg")
-heart_sound = pygame.mixer.Sound("./Sounds/Waku waku notification sound.ogg")
+heart_sound = pygame.mixer.Sound("./Sounds/Anya Waku Waku.ogg")
+dad_sound = pygame.mixer.Sound("./Sounds/Anya Chi Chi.ogg")
 
 # Background Music
 mixer.init()
@@ -57,7 +58,7 @@ class Player(pygame.sprite.Sprite):
 
         # Speed
         self.vel_x = 0
-        self.player_speed = 4
+        self.player_speed = 4.5
 
     def update(self):
         self.rect.x += self.vel_x * self.player_speed
@@ -119,6 +120,25 @@ class Heart(pygame.sprite.Sprite):
     def update(self):
         self.rect.y += self.vel_y
 
+class Loid(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+
+        # Image
+        self.image = pygame.image.load("./Assets/Loid.png")
+        self.image = pygame.transform.scale(self.image, (300, 300))  # scale
+
+        # Rectangle
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randrange(25, WIDTH - self.rect.width - 25)
+        self.rect.y = 0
+
+        # Speed
+        self.vel_y = 5
+
+    def update(self):
+        self.rect.y += self.vel_y
+
 
 def main():
     pygame.init()
@@ -133,10 +153,12 @@ def main():
     clock = pygame.time.Clock()
     peanut_spawn = random.randrange(3000, 6000)
     heart_spawn = random.randrange(8000, 10000)
+    loid_spawn = random.randrange (20000, 25000)
     enemy_spawn = 1000
     peanut_latest_spawn = pygame.time.get_ticks()
     enemy_latest_spawn = pygame.time.get_ticks()
     heart_latest_spawn = pygame.time.get_ticks()
+    loid_latest_spawn = pygame.time.get_ticks()
     score = 0
     life = 0
     game_over = True
@@ -144,9 +166,9 @@ def main():
     # Intro / Game Over Screen
     def show_go_screen():
         screen.blit(background_image, (0, 0))
-        draw_text(screen, "Anya's Peanut Addiction", 64, WIDTH / 2, HEIGHT / 4 + 120)
-        draw_text(screen, "Controls: Use A and D to move!", 26, WIDTH / 2, HEIGHT / 2 + 50)
-        draw_text(screen, "Press Space to Begin", 22, WIDTH / 2, HEIGHT * (3 / 4) + 120)
+        draw_text(screen, "Anya's Peanut Addiction", 80, WIDTH / 2, HEIGHT / 4 + 120)
+        draw_text(screen, "Controls: Use A and D to move!", 32, WIDTH / 2, HEIGHT / 2 + 50)
+        draw_text(screen, "Press ENTER to Begin", 24, WIDTH / 2, HEIGHT * (3 / 4) + 120)
         pygame.display.flip()
         waiting = True
         while waiting:
@@ -155,7 +177,7 @@ def main():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                 if event.type == pygame.KEYUP:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_RETURN:
                         waiting = False
                         pygame.mixer.music.stop()
                         pygame.mixer.music.load("./Sounds/SPY x FAMILY Main Theme - EPIC VERSION (1).ogg")
@@ -166,6 +188,7 @@ def main():
     peanut_group = pygame.sprite.Group()
     enemy_group = pygame.sprite.Group()
     heart_group = pygame.sprite.Group()
+    loid_group = pygame.sprite.Group()
 
 
     # Player
@@ -184,6 +207,7 @@ def main():
             # reset game
             enemy_spawn = 1000
             life = 1000
+            invincibility = False
             score = 0
             player.vel_x = 0
             player.rect.x = WIDTH / 2 - 97.5
@@ -194,6 +218,8 @@ def main():
                 peanut.kill()
             for heart in heart_group:
                 heart.kill()
+            for loid in loid_group:
+                loid.kill()
             game_over = False
 
         # -- Event Handler
@@ -251,6 +277,14 @@ def main():
                 all_sprites_group.add(heart)
                 heart_group.add(heart)
 
+            # Loid Spawn
+            if pygame.time.get_ticks() > loid_latest_spawn + loid_spawn:
+                loid_latest_spawn = pygame.time.get_ticks()
+                # Spawn heart
+                loid = Loid()
+                all_sprites_group.add(loid)
+                loid_group.add(loid)
+
             # If a peanut hits the ground
             for peanut in peanut_group:
                 if peanut.rect.y >= HEIGHT - peanut.rect.height - 7:
@@ -283,7 +317,16 @@ def main():
                     heart_sound.play()
                     life += 200
 
+            # If Loid hits the player
 
+            for loid in loid_group:
+                if loid.rect.y >= HEIGHT - loid.rect.height - 7:
+                    loid.kill()
+                    dad_sound.play()
+                # Loid killing enemies
+                loid_collide = pygame.sprite.spritecollide(loid, enemy_group, dokill= True)
+                if len(loid_collide) > 0:
+                    enemy.kill()
 
             # Speed Game Up at Certain Scores
             if score >= 2:
@@ -297,7 +340,7 @@ def main():
 
 
             # Game Over
-            if life < 1:
+            if life <= 0:
                 game_over = True
 
         # ----- RENDER
